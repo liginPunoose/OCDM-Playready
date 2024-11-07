@@ -15,55 +15,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 2.8)
 project(DRMPlayready)
 
-find_package(Thunder)
+if (DEFINED MAKE_VERBOSE)
+    set(CMAKE_VERBOSE_MAKEFILE TRUE)
+endif()
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
-set(MODULE_NAME Playready)
+set(DRM_PLUGIN_NAME "PlayReady4")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-find_package(${NAMESPACE}Core REQUIRED)
-find_package(PlayReady REQUIRED)
+if(NOT CMAKE_CROSSCOMPILING)
+   set(STAGING_DIR "${CMAKE_INSTALL_PREFIX}")
+else()
+   set(STAGING_DIR "${CMAKE_FIND_ROOT_PATH}")
+endif()
 
-add_library(${MODULE_NAME} SHARED
-    MediaSession.cpp
+file(GLOB DRM_PLUGIN_INCLUDES *.h)
+
+set(DRM_PLUGIN_LIBS 
+    ${PLAYREADY4_LIBRARIES})
+
+set(DRM_PLUGIN_SOURCES 
+    MediaSession.cpp 
     MediaSystem.cpp
     MediaSessionExt.cpp)
 
-set_target_properties(${MODULE_NAME} PROPERTIES
-        CXX_STANDARD 11
-        CXX_STANDARD_REQUIRED YES)
+# add the library
+add_library(${DRM_PLUGIN_NAME} SHARED ${DRM_PLUGIN_SOURCES})
+target_compile_definitions(${DRM_PLUGIN_NAME} PRIVATE ${PLAYREADY4_FLAGS})
+target_include_directories(${DRM_PLUGIN_NAME} PRIVATE ${PLAYREADY4_INCLUDE_DIRS})
+target_include_directories(${DRM_PLUGIN_NAME} PRIVATE source/curl_prebuilt/include/curl source/inc source/modules/contentspecific/h264/real source/oem/ansi/inc source/oem/common/broker/pkImpl source/oem/common/crypto/aes source/oem/common/inc source/oem/common/trustedexec source/results source/securecore/trustedexec/base source/tools/devicedevcert/bcertdump source/tools/pseudotee/dll source/tools/shared/common source/tools/shared/netio source/tools/shared/oem source/tools/shared/remoteprovisioningmock source/trustedexec/base source/trustedexec/debug source/trustedexec/decrypt source/trustedexec/inc source/trustedexec/licprep source/trustedexec/rprov source/trustedexec/teeproxystub/common source/trustedexec/teeproxystub/proxy/common source/trustedexec/teeproxystub/stub/common)
+add_compile_definitions(DRM_BUILD_PROFILE=900)
+target_link_libraries(${DRM_PLUGIN_NAME} PRIVATE libplayreadypk.so)
+set_target_properties(${DRM_PLUGIN_NAME} PROPERTIES SUFFIX ".drm")
+set_target_properties(${DRM_PLUGIN_NAME} PROPERTIES PREFIX "")
 
-target_compile_definitions(${MODULE_NAME} 
-    PRIVATE 
-        BSTD_CPU_ENDIAN=BSTD_ENDIAN_LITTLE
-        DRM_BUILD_PROFILE=900
-)
+find_package(OpenSSL REQUIRED)
+target_link_libraries(${DRM_PLUGIN_NAME} OpenSSL::SSL)
 
-target_include_directories(${MODULE_NAME}
-    PRIVATE
-    "${CMAKE_SYSROOT}/usr/include"
-    "${CMAKE_SYSROOT}/usr/include/${NAMESPACE}"
-    ${PLAYREADY_INCLUDE_DIRS})
+# Enable SVP.
+#if("${RDK_SVP}" STREQUAL "ENABLED")
+    message(STATUS "Using RDK_SVP")
+    add_definitions (-DUSE_SVP)
+    target_include_directories(${DRM_PLUGIN_NAME} PRIVATE ${CMAKE_SYSROOT}/usr/include/gstreamer-1.0)
+    target_include_directories(${DRM_PLUGIN_NAME} PRIVATE ${CMAKE_SYSROOT}/usr/include/glib-2.0)
+    target_include_directories(${DRM_PLUGIN_NAME} PRIVATE ${CMAKE_SYSROOT}/usr/lib/glib-2.0/include)
+    target_include_directories(${DRM_PLUGIN_NAME} PRIVATE ${CMAKE_SYSROOT}/usr/include/realtek/genericLinux/include)
+    target_link_libraries(${DRM_PLUGIN_NAME} gstsvpext)
+#endif()
 
-target_link_libraries(${MODULE_NAME}
-    ${NAMESPACE}Core::${NAMESPACE}Core
-    ${PLAYREADY_LIBRARIES})
+add_definitions(-DNO_PERSISTENT_LICENSE_CHECK=1)
 
-# Library installation section
-set_target_properties(${MODULE_NAME} PROPERTIES SUFFIX ".drm")
-set_target_properties(${MODULE_NAME} PROPERTIES PREFIX "")
-
-install(TARGETS ${MODULE_NAME}
-    PERMISSIONS OWNER_READ GROUP_READ
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/share/${NAMESPACE}/OCDM)
-
-if(NOT "${CMAKE_FIND_ROOT_PATH}" STREQUAL "")
-    install(CODE "execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink /etc/playready  ${CMAKE_CURRENT_BINARY_DIR}/playready)")
-    install(DIRECTORY DESTINATION ${CMAKE_INSTALL_PREFIX}/../${PERSISTENT_PATH}/OCDM)
-    install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/playready DESTINATION ${CMAKE_INSTALL_PREFIX}/../${PERSISTENT_PATH}/OCDM/)
-endif()
-
+install(TARGETS ${DRM_PLUGIN_NAME} DESTINATION ${CMAKE_INSTALL_PREFIX}/share/WPEFramework/OCDM)
