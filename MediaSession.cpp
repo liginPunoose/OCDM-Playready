@@ -26,7 +26,6 @@
 
 #ifdef USE_SVP
 #include "gst_svp_meta.h"
-#include "gstrtksecurememory.h"
 
 typedef struct Sec_OpaqueBufferHandle_struct
 {
@@ -1383,10 +1382,10 @@ CDMi_RESULT MediaKeySession::Decrypt(
   CDMi_RESULT ret = CDMi_S_FALSE;
   bool useSVP = false;
 
+#if defined (RESOLUTION_CHECK_ENABLED)
   uint64_t mCurrentPixels;
   if (properties->GetMediaType() == Video) {
       mCurrentPixels = properties->GetHeight() * properties->GetWidth();
-      useSVP = true;
   }
 
   /* MaxResDecode */
@@ -1396,6 +1395,13 @@ CDMi_RESULT MediaKeySession::Decrypt(
         return CDMi_S_FALSE;
     }
   }
+#endif /* RESOLUTION_CHECK_ENABLED */
+
+#if defined (DYNAMIC_SVP_DECRYPTION)
+  if (properties->GetMediaType() == Video) {
+      useSVP = true;
+  }
+#endif /* DYNAMIC_SVP_DECRYPTION */
 
   if (sampleInfo->scheme == AesCbc_Cbc1 || sampleInfo->scheme == AesCbc_Cbcs) {  //CBC
     ret = DecryptAesCBC1(sampleInfo->subSample, sampleInfo->subSampleCount,
