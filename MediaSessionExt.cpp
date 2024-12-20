@@ -27,7 +27,7 @@ namespace CDMi {
 std::map<KeyId, DECRYPT_CONTEXT> mBindMap;
 static const DRM_CONST_STRING* RIGHTS[] = { &PLAY_RIGHT };
 
-MediaKeySession::MediaKeySession(const uint8_t drmHeader[], uint32_t drmHeaderLength, DRM_APP_CONTEXT * poAppContext, bool initiateChallengeGeneration /* = false */)
+MediaKeySession::MediaKeySession(const uint8_t drmHeader[], uint32_t drmHeaderLength, DRM_APP_CONTEXT * poAppContext, DRM_VOID *m_drmOemContext, bool initiateChallengeGeneration /* = false */)
    : m_pbRevocationBuffer(nullptr)
    , m_eKeyState(KEY_CLOSED)
    , m_pbChallenge(nullptr)
